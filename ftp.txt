@@ -1,0 +1,205 @@
+#include <stdlib.h>                                                                                                                                                    
+#include <fcntl.h>                                                                                                                                                     
+#include <stdio.h>                                                                                                                                                     
+#include <sys/types.h>                                                                                                                                                 
+#include <sys/socket.h>                                                                                                                                                
+#include <netinet/in.h>                                                                                                                                                
+#include <string.h>                                                                                                                                                    
+#include <arpa/inet.h>                                                                                                                                                 
+#include <unistd.h>                                                                                                                                                    
+#include <time.h>                                                                                                                                                      
+#define size 1024                                                                                                                                                      
+                                                                                                                                                                       
+int main(int argc, char* argv[]) {                                                                                                                                     
+        char cwd[1000];                                                                                                                                                
+        int sockfd1,connfd1=0,sockfd2,connfd2=0;                                                                                                                       
+        struct sockaddr_in serv_addr;                                                                                                                                  
+        char buffer[size];                                                                                                                                             
+        char file[100],user[100],pass[100],new[10];                                                                                                                    
+        serv_addr.sin_family = AF_INET;                                                                                                                                
+        int PORT1, PORT2;                                                                                                                                              
+        PORT1 = atoi(argv[1]);                                                                                                                                         
+        serv_addr.sin_port = htons(PORT1);                                                                                                                             
+        serv_addr.sin_addr.s_addr = inet_addr("127.0.0.1");                                                                                                            
+        sockfd1=socket(AF_INET, SOCK_STREAM, 0);                                                                                                                       
+        if(sockfd1<0) {                                                                                                                                                
+                printf("Socket creation failed\n");                                                                                                                    
+                return 1;                                                                                                                                              
+        }                                                                                                                                                              
+        connfd1 = connect(sockfd1, (struct sockaddr*)&serv_addr, sizeof(serv_addr));                                                                                   
+        if(connfd1<0) {                                                                                                                                                
+                  printf("server accept failed\n");                                                                                                                    
+              return 1;                                                                                                                                                
+        }                                                                                                                                                              
+        else                                                                                                                                                           
+                printf("Connection Established\n");                                                                                                                    
+        while(1) {                                                                                                                                                     
+                      printf("\nEnter the username: ");                                                                                                                
+                      scanf("%s", user);                                                                                                                               
+                      send(sockfd1,user,strlen(user)+1,0);                                                                                                             
+                      printf("Enter the password: ");                                                                                                                  
+                      scanf("%s", pass);                                                                                                                               
+                      send(sockfd1,pass,strlen(pass)+1,0);                                                                                                             
+                      recv(sockfd1,buffer,sizeof(buffer),0);                                                                                                           
+                      if((strncmp(buffer,"valid",strlen("valid")))==0) {                                                                                               
+                             printf("Valid\n");                                                                                                                        
+                             break;                                                                                                                                    
+                      }                                                                                                                                                
+                      else                                                                                                                                             
+                        printf("invalid: try once again\n");                                                                                                           
+         }                                                                                                                                                             
+        PORT2 = atoi(argv[2]);                                                                                                                                         
+        serv_addr.sin_port = htons(PORT2);                                                                                                                             
+        sockfd2=socket(AF_INET, SOCK_STREAM, 0);                                                                                                                       
+          if(sockfd2<0)  {                                                                                                                                             
+                  printf("Socket creation failed\n");                                                                                                                  
+                  return 1;                                                                                                                                            
+          }                                                                                                                                                            
+          connfd2 = connect(sockfd2, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+          if(connfd2<0) {                                                                                                                                              
+                  printf("server accept failed\n");                                                                                                                    
+                  return 1;                                                                                                                                            
+          }                                                                                                                                                            
+          else                                                                                                                                                         
+                  printf("Connection Established\n");                                                                                                                  
+         while(1) {                                                                                                                                                    
+                 printf("\nEnter the filename('exit' to end): ");                                                                                                      
+                 scanf("%s", file);                                                                                                                                    
+                 getcwd(cwd,sizeof(cwd));                                                                                                                              
+                 strcat(cwd,"/data/");                                                                                                                                 
+                 strcat(cwd, file);                                                                                                                                    
+                 if((strncmp(file,"exit",strlen("exit")))==0) {                                                                                                        
+                         send(sockfd2,"exit",strlen("exit")+1,0);                                                                                                      
+                         break;                                                                                                                                        
+                 }                                                                                                                                                     
+                send(sockfd2,file,strlen(file)+1,0);                                                                                                                   
+                recv(sockfd2,buffer,sizeof(buffer),0);                                                                                                                 
+                if((strncmp(buffer,"found",strlen("found")))==0) {                                                                                                     
+                        printf("Requested file found\n");                                                                                                              
+                        printf("Enter 'yes' to confirm file transfer(or enter 'no'):");                                                                                
+                        scanf("%s",new);                                                                                                                               
+                        send(sockfd2,new,strlen(new)+1,0);                                                                                                             
+                        if((strncmp(new,"yes",strlen("yes")))==0)                                                                                                      
+                        {                                                                                                                                              
+                                recv(sockfd2,buffer,sizeof(buffer),0);                                                                                                 
+                                FILE *fp = fopen(cwd, "w");                                                                                                            
+                                if(fp<0) {                                                                                                                             
+                                        printf("File open error \n");                                                                                                  
+                                }                                                                                                                                      
+                                else {                                                                                                                                 
+                                        int k=0;                                                                                                                       
+                                        for(; k<sizeof(buffer) && buffer[k]!='\0'; ++k);                                                                               
+                                        int val = fwrite(buffer, sizeof(char), k, fp);                                                                                 
+                                        if(val<0) {                                                                                                                    
+                                                printf("File Write Error\n");                                                                                          
+                                        }                                                                                                                              
+                                }                                                                                                                                      
+                                printf(" ****** Contents of the file ***** \n%s",buffer);                                                                              
+                        }                                                                                                                                              
+                }                                                                                                                                                      
+                else                                                                                                                                                   
+                        printf("File not found. Try again!\n");                                                                                                        
+         }                                                                                                                                                             
+         close(sockfd1);                                                                                                                                               
+         close(sockfd2);                                                                                                                                               
+         return 0;                                                                                                                                                     
+}                                                                                                                                                                      
+
+server.c                                                                                            
+#include <stdio.h>                                                                                                                                                     
+#include <fcntl.h>                                                                                                                                                     
+#include <arpa/inet.h>                                                                                                                                                 
+#include <sys/types.h>                                                                                                                                                 
+#include <sys/socket.h>                                                                                                                                                
+#include <netinet/in.h>                                                                                                                                                
+#include <string.h>                                                                                                                                                    
+#include <unistd.h>                                                                                                                                                    
+#include <stdlib.h>                                                                                                                                                    
+#define buff_size 1024                                                                                                                                                 
+                                                                                                                                                                       
+int main(int argc, char* argv[]) {                                                                                                                                     
+        int sockfd1,connfd1,sockfd2,connfd2,i=0;                                                                                                                       
+        int PORT1, PORT2;                                                                                                                                              
+        struct sockaddr_in serv_addr;                                                                                                                                  
+        char uname[100],pw[100],fname[100],buffer[buff_size],c;                                                                                                        
+        serv_addr.sin_family = AF_INET;                                                                                                                                
+        PORT1 = atoi(argv[1]);                                                                                                                                         
+        serv_addr.sin_port = htons(PORT1);                                                                                                                             
+        serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);                                                                                                                 
+        sockfd1 = socket(AF_INET, SOCK_STREAM, 0);                                                                                                                     
+        if(sockfd1 < 0){                                                                                                                                               
+                printf("Socket creation failed!\n");                                                                                                                   
+                return 1;                                                                                                                                              
+        }                                                                                                                                                              
+        if(bind(sockfd1, (struct sockaddr*)&serv_addr, sizeof(serv_addr))<0){                                                                                          
+                printf("Binding failed!!\n");                                                                                                                          
+                return 1;                                                                                                                                              
+        }                                                                                                                                                              
+        if(listen(sockfd1,5)<0){                                                                                                                                       
+                printf("Listening failed\n");                                                                                                                          
+                return 1;                                                                                                                                              
+        }                                                                                                                                                              
+        connfd1 = accept(sockfd1, (struct sockaddr*)NULL, NULL);                                                                                                       
+        if(connfd1)                                                                                                                                                    
+                printf("Connection established with the client\n");                                                                                                    
+        while(1){                                                                                                                                                      
+                recv(connfd1,uname,sizeof(uname),0);                                                                                                                   
+                recv(connfd1,pw,sizeof(pw),0);                                                                                                                         
+                if(((strncmp(uname,"cnlab",strlen("cnlab")))==0)&&((strncmp(pw,"csep24",strlen("csep24")))==0)) {                                                      
+                        printf("valid client\n\n");                                                                                                                    
+                        send(connfd1,"valid",strlen("valid")+1,0);                                                                                                     
+                        break;                                                                                                                                         
+                }                                                                                                                                                      
+                else                                                                                                                                                   
+                        send(connfd1,"invalid",strlen("invalid")+1,0);                                                                                                 
+        }                                                                                                                                                              
+        PORT2 = atoi(argv[2]);                                                                                                                                         
+        serv_addr.sin_port = htons(PORT2);                                                                                                                             
+        sockfd2 = socket(AF_INET, SOCK_STREAM, 0);                                                                                                                     
+        if(sockfd2 < 0){                                                                                                                                               
+                printf("Socket creation failed!\n");                                                                                                                   
+                return 1;                                                                                                                                              
+        }                                                                                                                                                              
+        if(bind(sockfd2, (struct sockaddr*)&serv_addr, sizeof(serv_addr))<0){                                                                                          
+                printf("Binding failed!!\n");                                                                                                                          
+                return 1;                                                                                                                                              
+        }                                                                                                                                                              
+        if(listen(sockfd2,5)<0){                                                                                                                                       
+                printf("Listening failed\n");                                                                                                                          
+                return 1;                                                                                                                                              
+        }                                                                                                                                                              
+        connfd2 = accept(sockfd2, (struct sockaddr*)NULL, NULL);                                                                                                       
+        if(connfd2)                                                                                                                                                    
+                printf("Connection established with the client\n\n");                                                                                                  
+        while(1){                                                                                                                                                      
+                recv(connfd2,fname,sizeof(fname),0);                                                                                                                   
+                 if((strncmp(fname,"exit",strlen("exit")))==0) {                                                                                                       
+                         printf("\nExiting...\n");                                                                                                                     
+                        close(connfd2);                                                                                                                                
+                        close(connfd1);                                                                                                                                
+                        break;                                                                                                                                         
+                 }                                                                                                                                                     
+                else                                                                                                                                                   
+                {                                                                                                                                                      
+                        printf("\n\nfrom client:%s\n",fname);                                                                                                          
+                        int fd=open(fname,O_RDONLY);                                                                                                                   
+                        if(fd<0)                                                                                                                                       
+                        {                                                                                                                                              
+                        printf("file not found\n");                                                                                                                    
+                        send(connfd2,"not found",strlen("not found")+1,0);                                                                                             
+                        }                                                                                                                                              
+                        else {                                                                                                                                         
+                                printf("File Found\n");                                                                                                                
+                                send(connfd2,"found",strlen("found")+1,0);                                                                                             
+                                recv(connfd2,buffer,sizeof(buffer),0);                                                                                                 
+                                if(strncmp(buffer,"yes",strlen("yes"))==0)                                                                                             
+                                {                                                                                                                                      
+                                        printf("Sending File Contents to the Client...\n");                                                                            
+                                        read(fd,buffer,sizeof(buffer));                                                                                                
+                                        send(connfd2,buffer,strlen(buffer)+1,0);                                                                                       
+                                }                                                                                                                                      
+                        }                                                                                                                                              
+                }                                                                                                                                                      
+        }                                                                                                                                                              
+        return 0;                                                                                                                                                      
+}                                                   
